@@ -1,0 +1,15 @@
+version: 2
+updates:
+  - package-ecosystem: "pip"
+    directory: "/projects/etos_suite_runner"
+    schedule:
+      interval: "weekly"
+    versioning-strategy: increase
+    allow:
+      - dependency-name: "etos-lib"
+      - dependency-name: "etos-environment-provider"
+    groups:
+      etos:
+        patterns:
+          - "etos-lib"
+          - "etos-environment-provider"
