@@ -266,6 +266,44 @@ class ESR(OpenTelemetryBase):  # pylint:disable=too-many-instance-attributes
             # TERCC variable is set only in v0 ETOS, TESTRUN in v1 and onwards.
             assert os.getenv("TERCC"), "TERCC environment variable not provided."
 
+    @staticmethod
+    def _suites_to_batches(suites: list[Suite]) -> list[dict]:
+        """Convert Suite objects back to TERCC batches format.
+
+        :param suites: List of Suite objects from the TestRun CRD.
+        :return: List of batch dictionaries in TERCC format.
+        """
+        batches = []
+        for suite in suites:
+            recipes = []
+            for test in suite.tests:
+                constraints = [
+                    {"key": "ENVIRONMENT", "value": test.execution.environment},
+                    {"key": "PARAMETERS", "value": test.execution.parameters},
+                    {"key": "COMMAND", "value": test.execution.command},
+                    {"key": "EXECUTE", "value": test.execution.execute},
+                    {"key": "CHECKOUT", "value": test.execution.checkout},
+                    {"key": "TEST_RUNNER", "value": test.execution.testRunner},
+                ]
+                recipe = {
+                    "id": test.id,
+                    "testCase": {
+                        "id": test.testCase.id,
+                        "tracker": test.testCase.tracker or "",
+                        "uri": test.testCase.uri or "",
+                    },
+                    "constraints": constraints,
+                }
+                recipes.append(recipe)
+            batches.append(
+                {
+                    "name": suite.name,
+                    "priority": suite.priority,
+                    "recipes": recipes,
+                }
+            )
+        return batches
+
     def _send_tercc(self, testrun_id: str, iut_id: str) -> None:
         """Send tercc will publish the TERCC event for this testrun."""
         self.logger.info("Sending TERCC event")
@@ -274,7 +312,7 @@ class ESR(OpenTelemetryBase):  # pylint:disable=too-many-instance-attributes
         links = {"CAUSE": iut_id}
         data = {
             "selectionStrategy": {"tracker": "Suite Builder", "id": str(uuid4())},
-            "batchesUri": os.getenv("SUITE_SOURCE", "Unknown"),
+            "batches": self._suites_to_batches(self.params.test_suite),
         }
         self.etos.events.send(event, links, data)
 
